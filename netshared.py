@@ -11,11 +11,12 @@ import pygame
 from collections import defaultdict
 from periodic import Periodic
 import random
+from projectile import Projectile
 
 TICKTIME = 0.05
 
 class NetCommon:
-	netEntities = { "player": Player }
+	netEntities = { "player": Player, "projectile":Projectile }
 	def __init__(self, listenPort):
 		#Make a UDP socket
 		self.sock = socket.socket( socket.AF_INET, socket.SOCK_DGRAM )
@@ -29,9 +30,9 @@ class NetCommon:
 		self.packetTimestamps = []
 		self.packetsPerSecond = 0
 		
-		self.simulatedLatency = 0.0
-		self.simulatedRandomLatencyVal = 0.0
-		self.simulatedPacketloss = 0
+		self.simulatedLatency = 0.15
+		self.simulatedRandomLatencyVal = 0.1
+		self.simulatedPacketloss = 0.1
 
 		self.simulatedRandomLatency = 0
 		self.simulatedPackets = []
@@ -128,6 +129,7 @@ class NetCommon:
 		sent = {
 			"id":ensured_id,
 			"data":cdata,
+			"time":self.t,
 			"info":(addr,port)
 		}
 		self.ensured_sent_packets[addrportstr][ensured_id] = sent
@@ -186,8 +188,9 @@ class NetCommon:
 	def resendUnconfirmed(self):
 		for k,packets in self.ensured_sent_packets.items():
 			for i,packet in packets.items():
-				print "resending unreceipted packet: " + str(packet["id"])
-				self.sock.sendto(packet["data"], packet["info"])		
+				if self.t > packet["time"] + 1.5:
+					print "resending unreceipted packet: " + str(packet["id"])
+					self.sock.sendto(packet["data"], packet["info"])		
 
 	def process(self, data, game, info):
 		if(hasattr(self, "process_" + data["type"])):

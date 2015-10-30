@@ -53,7 +53,7 @@ class NetClient(NetCommon):
 
 	def updateNetEntities(self, game, dt):
 		for e in game.scene.sceneEntities:
-			if hasattr(e, "netid") and e.netid >= 0:
+			if hasattr(e, "netid") and e.netid >= 0 and not e.predict:
 				if e == self.myPlayer:
 					continue
 				e.serverTime = self.serverTime
@@ -94,6 +94,12 @@ class NetClient(NetCommon):
 			"time":self.serverTime,
 			"xd" : self.myPlayer.xDirection, "yd" : self.myPlayer.yDirection,
 			"position": self.myPlayer.position.asTuple()})
+
+	def sendFireMessage(self):
+		self.sendToServer({
+			"type":"fire",
+			"time":self.serverTime
+			})
 		
 	def sendPlayerInfo(self, name):
 		self.sendEnsuredToServer({"type":"playerInfo", "name":name})
@@ -124,16 +130,28 @@ class NetClient(NetCommon):
 	def process_spawn(self, data, game, info):
 		entName = data["name"]
 		ctor = self.netEntities[entName]
-		ent = ctor(data["position"], *data["args"])
+		ent = ctor(Vector2(*data["position"]), *data["args"])
+		ent.velocity = Vector2(*data["velocity"])
+		ent.position += ent.velocity * (self.serverTime - data["time"])
 		ent.netid = data["netid"]
 		game.scene.add(ent)
 
+		if data["name"] == "projectile":
+			if data["owner"] == self.clientId:
+				ent.owner = self.myPlayer
+				self.myPlayer.throwingWaitForServer = False
+
 		if data["name"] == "player":
-			if  data["owner"] == self.clientId:
+			if data["owner"] == self.clientId:
 				controller = PlayerController(ent, self)
 				self.myPlayer = ent
 				game.controller = controller
 			ent.initialize()
+
+	def process_destroy(self, data, game, info):
+		ent = self.lookupEntity(game.scene, data["netid"])
+		if ent:
+			game.scene.sceneEntities.remove(ent)
 
 	def process_id(self, data, game, info):
 		self.clientId = data["clientId"]
@@ -184,3 +202,12 @@ class NetClient(NetCommon):
 	def process_serverVars(self, data, game, info):
 		self.interp = data["interp"]
 		print "INTERP: ", self.interp
+
+	def process_playerHit(self, data, game, info):
+		p = self.lookupEntity(game.scene, data["netid"])
+		if p is not None:
+			p.play("hit", True)
+			if p == self.myPlayer:
+				p.hitTimer = data["hitTimer"]
+			else:
+				p.hitTimer = data["hitTimer"] + self.interp

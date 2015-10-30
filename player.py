@@ -16,7 +16,7 @@ class Player(Sprite):
 		self.addAnimation("runb", content.images['player3.png'],	32 * 13, 0, 32, 32, 6, 9, True)
 		self.addAnimation("runbh", content.images['player3.png'],	32 * 19, 0, 32, 32, 6, 9, True)
 		self.addAnimation("catch", content.images['player3.png'],	32 * 25, 0, 32, 32, 1, 0, True)
-		self.addAnimation("throw", content.images['player3.png'],	32 * 26, 0, 32, 32, 4, 7, True)
+		self.addAnimation("throw", content.images['player3.png'],	32 * 26, 0, 32, 32, 4, 7, False)
 		self.addAnimation("hit", content.images['player3.png'],		32 * 30, 0, 32, 32, 2, 4, True)
 		self.addAnimation("jumpf", content.images['player3.png'],	32 * 32, 0, 32, 32, 1, 0, True)
 		self.addAnimation("jumpfh", content.images['player3.png'],	32 * 33, 0, 32, 32, 1, 0, True)
@@ -44,11 +44,16 @@ class Player(Sprite):
 		self.xDirection = 0
 		self.yDirection = 0		
 
+		self.throwingWaitForServer = False
+		self.throwTimer = 0
+
+		self.hitTimer = 0
+
 	def initialize(self):
 		self.health = 100
 
 		self.play("stand")
-		self.offset = Vector2(16, 30)
+		self.offset = Vector2(16, 16)
 
 		self.angle = 0
 
@@ -99,39 +104,36 @@ class Player(Sprite):
 	def update(self, dt):
 		Sprite.update(self, dt)
 
-		self.serverplay("stand")
-
 		if self.chatTimer > 0:
 			self.chatTimer -= dt
-			
-		self.velocity, animname = self.getVelocityAndAnim(self.xDirection, self.yDirection)
 
 		if self.team == 0:
 			self.flipHorizontal = False
 		else:
-			self.flipHorizontal = True
+			self.flipHorizontal = True			
+
+		if self.hitTimer > 0:
+			self.hitTimer -= dt
+			self.play("hit")
+			self.velocity.zero()
+			return
+		else:
+			self.play("stand")
+			
+		self.velocity, animname = self.getVelocityAndAnim(self.xDirection, self.yDirection)
 
 		self.collideWalls()
 
-		if self.localPlayer:
-			self.play(self.localPlayerAnimationName)
+		self.throwTimer -= dt
+		if self.throwingWaitForServer or self.throwTimer > 0:
+			self.velocity.zero()
 
-		if g.SERVER:
-			if self.currentAnimation != self.lastAnimation:
-				g.game.net.broadcast({"type":"animation", "netid":self.netid, "name":self.currentAnimation.name})
-		self.lastAnimation = self.currentAnimation	
-
-	def serverplay(self, name):
-		if g.SERVER:
-			self.play(name)
-		else:
-			if self.localPlayer:
-				self.localPlayerAnimationName = name
+		self.lastAnimation = self.currentAnimation
 
 	def draw(self, screen):
 		Sprite.draw(self, screen)
 		x = self.position.x - 7
-		y = self.position.y - 34
+		y = self.position.y - 20
 		w = min(max(self.health, 0) / 100.0 * 14, 13)
 		if self.health > 0:
 			pygame.draw.rect(screen, (39,65,62), (x-1,y-1, 16, 3), 0)
@@ -181,5 +183,10 @@ class PlayerController:
 		self.lastky = ky
 
 	def getEvent(self, evt):
-		pass
+		if evt.type == pygame.KEYDOWN:
+			if evt.key == pygame.K_z:
+				self.netClient.sendFireMessage()
+				self.player.throwingWaitForServer = True
+				self.player.throwTimer = 0.5
+				self.player.play("throw")
 

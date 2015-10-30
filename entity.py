@@ -19,6 +19,7 @@ class NetEntity(Entity):
 		self.serverStates = []
 		self.netid = -1
 		self.serverTime = 0
+		self.predict = False
 		self.interpVals = []
 
 	def update(self, dt):

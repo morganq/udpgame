@@ -109,19 +109,27 @@ class NetServer(NetCommon):
 		for c in self.clients:
 			self.sendEnsuredPacket(data, c.addr, c.port)		
 
-	def spawn(self, ent, name, extra = {}):
+	def spawn(self, ent, name, extra = {}, owner=None, ensured=True):
 		ent.netid = self.netidcounter
 		self.allentities.append(ent)
 		self.netidcounter += 1
+		if owner:
+			owner = owner.cid
 		data = {
 			"type":"spawn",
+			"time":self.t,
 			"name":name,
-			"position":ent.position,
+			"owner":owner,
+			"position":ent.position.asTuple(),
+			"velocity":ent.velocity.asTuple(),
 			"netid":ent.netid,
 			"args" : []}
 		for k, v in extra.items():
 			data[k] = v
-		self.ensuredBroadcast(data)
+		if ensured:
+			self.ensuredBroadcast(data)
+		else:
+			self.broadcast(data)
 
 	def startRound(self, game):
 		self.ensuredBroadcast({"type":"start"})
@@ -157,6 +165,14 @@ class NetServer(NetCommon):
 		maxlat = max(c.latency for c in self.clients)
 		interp = TICKTIME + maxlat * 1
 		self.ensuredBroadcast({"type":"serverVars", "interp":interp})
+
+	def destroyNetEntity(self, entity):
+		self.ensuredBroadcast({"type":"destroy", "netid":entity.netid})
+		self.game.scene.sceneEntities.remove(entity)
+
+	def sendPlayerHit(self, player):
+		player.hitTimer = 0.5
+		self.broadcast({"type":"playerHit", "time":self.t, "netid":player.netid, "hitTimer":player.hitTimer})
 
 	def process_pregame_hello(self, data, game, info):
 		self.ensuredBroadcast({"type":"numplayers","value":len(self.clients)})
@@ -214,6 +230,17 @@ class NetServer(NetCommon):
 		else:
 			p.xDirection = 0
 			p.yDirection = 0
+
+	def process_fire(self, data, game, info):
+		c = self.getClient(info)
+		if c is None:
+			return
+		proj = Projectile(c.entity.position)
+		proj.owner = c.entity
+		proj.velocity.x = (100,-100)[c.entity.team]
+		game.scene.add(proj)
+		self.spawn(proj, "projectile", owner=c, ensured=False)
+		c.entity.play("throw")
 
 	def process_playerInfo(self, data, game, info):
 		c = self.getClient(info)

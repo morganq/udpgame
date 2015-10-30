@@ -25,6 +25,9 @@ class Animation:
 				frameNum = len(self.frames) - 1
 		return self.frames[frameNum]
 
+	def isDone(self):
+		return self.looping or int(self.framerate * self.t) >= len(self.frames)
+
 class Sprite(NetEntity):
 	def __init__(self, position):
 		NetEntity.__init__(self)
@@ -57,8 +60,8 @@ class Sprite(NetEntity):
 		self.currentAnimation = anim
 		self.currentAnimation.name = name
 		
-	def play(self, name):
-		if self.currentAnimation != self.animations[name]:
+	def play(self, name, force=False):
+		if (self.currentAnimation != self.animations[name] and self.currentAnimation.isDone()) or force:
 			self.currentAnimation = self.animations[name]
 			self.currentAnimation.t = 0
 
