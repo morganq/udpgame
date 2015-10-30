@@ -1,0 +1,9 @@
+.svn/
+*.exe
+dist/
+dodgeball/
+*.pyc
+*.rar
+*.psd
+config.json
+.DS_Store
