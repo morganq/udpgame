@@ -82,10 +82,10 @@ class NetCommon:
 		to_remove = []
 		self.ensured_packets_received_early[addrportstr].sort(lambda a,b:cmp(a["ensured_id"], b["ensured_id"]))
 		for p in self.ensured_packets_received_early[addrportstr]:
-			print "resolving old " + str(unpacked["ensured_id"])
+			print "resolving old " + str(p["ensured_id"])
 			if p["ensured_id"] == self.ensured_recv_packet_ids[addrportstr]+1:
 				self.ensured_recv_packet_ids[addrportstr] += 1
-				self.sendReceipt(addr, port, unpacked["ensured_id"])
+				self.sendReceipt(addr, port, p["ensured_id"])
 				allPackets.extend(self.readUnpackedPacket(p, addrportstr))
 				to_remove.append(p)
 		for p in to_remove:

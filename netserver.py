@@ -152,8 +152,10 @@ class NetServer(NetCommon):
 		self.broadcast({"type":"sound", "name":name})
 
 	def sendServerVars(self):
+		if not len(self.clients):
+			return
 		maxlat = max(c.latency for c in self.clients)
-		interp = min(TICKTIME + maxlat * 2, 0.35)
+		interp = TICKTIME + maxlat * 1
 		self.ensuredBroadcast({"type":"serverVars", "interp":interp})
 
 	def process_pregame_hello(self, data, game, info):
@@ -231,5 +233,11 @@ class NetServer(NetCommon):
 		c = self.getClient(info)
 		if c is None:
 			return
-		c.latency = self.t - data["time"]
+		key = "client_" + str(c.cid) + "_latency"
+		diff = self.t - data["time"]
+		if diff > 1.0 or diff < 0:
+			return
+		self.averagedData.add(self.t, key, diff)
+		c.latency = self.averagedData.get_max(self.t, key, 10)
+		print c.latency
 		self.sendToClient(c, {"type":"pong"})

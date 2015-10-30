@@ -26,9 +26,11 @@ class NetClient(NetCommon):
 		self.serverTimeOffsetFromClientTime = 0
 		self.timeSyncResponses = []
 
-		self.periodic.add(self.sendPing, 2.0)
+		self.periodic.add(self.sendPing, 1.0)
 		self.periodic.add(self.sendTimeSyncRequest, 0.25)
 		self.periodic.add(self.sendInputs, 0.05)
+
+		self.lastStateUpdate = 0
 
 		self.interp = INTERP
 
@@ -42,6 +44,10 @@ class NetClient(NetCommon):
 		self.serverTime = self.t + self.serverTimeOffsetFromClientTime
 
 		self.timeSinceUpdate += dt
+
+		if self.t - self.interp >= self.lastStateUpdate:
+			self.interp += dt / 4.0
+			print "interp upgrade:", self.interp
 
 		self.updateNetEntities(game, dt)
 
@@ -136,6 +142,7 @@ class NetClient(NetCommon):
 		print("Connected.")
 
 	def process_state(self, data, game, info):
+		self.lastStateUpdate = data["time"]
 		self.simulatedRandomLatency = self.simulatedRandomLatencyVal
 		self.timeSinceUpdate = 0
 		for edata in data["entities"]:
