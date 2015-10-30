@@ -19,3 +19,16 @@ class Projectile(Sprite):
 						g.game.net.sendPlayerHit(e)
 						g.game.net.destroyNetEntity(self)
 					break
+			if self.collideWalls():
+				g.game.net.destroyNetEntity(self)
+
+	def collideWalls(self):
+		if self.position.y < 38:
+			return True
+		if self.position.y > 187:
+			return True
+		if self.position.x < 35 - 0.2391 * (self.position.y - 38):
+			return True
+		if self.position.x > 285 + 0.2391 * (self.position.y - 38):
+			return True
+		return False

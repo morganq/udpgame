@@ -16,6 +16,7 @@ class Player(Sprite):
 		self.addAnimation("runb", content.images['player3.png'],	32 * 13, 0, 32, 32, 6, 9, True)
 		self.addAnimation("runbh", content.images['player3.png'],	32 * 19, 0, 32, 32, 6, 9, True)
 		self.addAnimation("catch", content.images['player3.png'],	32 * 25, 0, 32, 32, 1, 0, True)
+		self.addAnimation("charge", content.images['player3.png'],	32 * 26, 0, 32, 32, 1, 1, True)
 		self.addAnimation("throw", content.images['player3.png'],	32 * 26, 0, 32, 32, 4, 7, False)
 		self.addAnimation("hit", content.images['player3.png'],		32 * 30, 0, 32, 32, 2, 4, True)
 		self.addAnimation("jumpf", content.images['player3.png'],	32 * 32, 0, 32, 32, 1, 0, True)
@@ -46,6 +47,8 @@ class Player(Sprite):
 
 		self.throwingWaitForServer = False
 		self.throwTimer = 0
+
+		self.charge = 0
 
 		self.hitTimer = 0
 
@@ -114,13 +117,14 @@ class Player(Sprite):
 
 		if self.hitTimer > 0:
 			self.hitTimer -= dt
-			self.play("hit")
+			self.serverOrSelfPlay("hit")
 			self.velocity.zero()
-			return
+		elif self.charge > 0:
+			self.serverOrSelfPlay("charge")
+			self.velocity.zero()
 		else:
-			self.play("stand")
-			
-		self.velocity, animname = self.getVelocityAndAnim(self.xDirection, self.yDirection)
+			self.serverOrSelfPlay("stand")
+			self.velocity, animname = self.getVelocityAndAnim(self.xDirection, self.yDirection)
 
 		self.collideWalls()
 
@@ -128,7 +132,13 @@ class Player(Sprite):
 		if self.throwingWaitForServer or self.throwTimer > 0:
 			self.velocity.zero()
 
+		if g.SERVER and self.lastAnimation != self.currentAnimation:
+			g.game.net.sendAnimation(self)
 		self.lastAnimation = self.currentAnimation
+
+	def serverOrSelfPlay(self, animName):
+		if g.SERVER or self.localPlayer:
+			self.play(animName)
 
 	def draw(self, screen):
 		Sprite.draw(self, screen)
@@ -139,6 +149,10 @@ class Player(Sprite):
 			pygame.draw.rect(screen, (39,65,62), (x-1,y-1, 16, 3), 0)
 			pygame.draw.line(screen, (255, 255, 255), (x, y), (x + 13, y))
 			pygame.draw.line(screen, (67,102,125), (x, y), (x + w, y))
+
+		if self.charge > 0:
+			c = int(min(self.charge, 1.0) * 14.0)
+			pygame.draw.line(screen, (173,0,0), (x-1,y-2),(x + c, y-2))
 
 		if self.chatTimer > 0:
 			surf = self.chatFont.render(self.chatText, False, (39, 65, 62))
@@ -160,6 +174,9 @@ class PlayerController:
 		self.netClient = netClient
 		self.lastkx = 0
 		self.lastky = 0
+		self.charging = False
+		self.chargeDir = Vector2(0,0)
+		self.chargeTimer = 0
 
 	def update(self, dt):
 		keys = pygame.key.get_pressed()
@@ -176,8 +193,16 @@ class PlayerController:
 		if kx != self.lastkx or ky != self.lastky:
 			pass
 
-		self.player.xDirection = kx
-		self.player.yDirection = ky
+		if self.charging:
+			if kx != 0 or ky != 0:
+				self.chargeDir = Vector2(kx, ky).normalized()
+			self.chargeTimer = min(self.chargeTimer + dt,1)
+			self.player.xDirection = 0
+			self.player.yDirection = 0			
+			self.player.charge = self.chargeTimer
+		else:
+			self.player.xDirection = kx
+			self.player.yDirection = ky
 
 		self.lastkx = kx
 		self.lastky = ky
@@ -185,8 +210,17 @@ class PlayerController:
 	def getEvent(self, evt):
 		if evt.type == pygame.KEYDOWN:
 			if evt.key == pygame.K_z:
-				self.netClient.sendFireMessage()
+				self.netClient.sendChargeMessage()
+				self.charging = True
+				self.chargeTimer = 0
+				self.chargeDir = Vector2((1,-1)[self.player.team],0)
+
+		if evt.type == pygame.KEYUP:
+			if evt.key == pygame.K_z:
+				self.netClient.sendFireMessage(self.chargeDir)
 				self.player.throwingWaitForServer = True
-				self.player.throwTimer = 0.5
+				self.player.throwTimer = 0.25
 				self.player.play("throw")
+				self.player.charge = 0
+				self.charging = False
 

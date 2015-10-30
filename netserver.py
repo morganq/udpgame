@@ -25,6 +25,7 @@ class ClientInfo:
 		self.admin = False
 		self.super = []
 		self.exThrow = []
+		self.chargeStartTime = 0
 
 
 class NetServer(NetCommon):
@@ -164,15 +165,19 @@ class NetServer(NetCommon):
 			return
 		maxlat = max(c.latency for c in self.clients)
 		interp = TICKTIME + maxlat * 1
-		self.ensuredBroadcast({"type":"serverVars", "interp":interp})
+		self.broadcast({"type":"serverVars", "interp":interp})
 
 	def destroyNetEntity(self, entity):
-		self.ensuredBroadcast({"type":"destroy", "netid":entity.netid})
+		self.broadcast({"type":"destroy", "netid":entity.netid})
 		self.game.scene.sceneEntities.remove(entity)
 
 	def sendPlayerHit(self, player):
 		player.hitTimer = 0.5
 		self.broadcast({"type":"playerHit", "time":self.t, "netid":player.netid, "hitTimer":player.hitTimer})
+
+	def sendAnimation(self, spr):
+		print "send anim: ", spr.currentAnimation.name
+		self.broadcast({"type":"animation", "time":self.t, "name":spr.currentAnimation.name, "netid":spr.netid})
 
 	def process_pregame_hello(self, data, game, info):
 		self.ensuredBroadcast({"type":"numplayers","value":len(self.clients)})
@@ -203,10 +208,8 @@ class NetServer(NetCommon):
 
 	def process_timeSyncRequest(self, data, game, info):
 		c = self.getClient(info)
-		print c
 		if c is None:
 			return
-		print "time sync " + str(data["client"]) + " : " + str(self.t)
 		self.sendToClient(c, {"type":"timeSyncResponse", "client":data["client"], "server":self.t})
 
 	def process_start(self, data, game, info):
@@ -237,10 +240,20 @@ class NetServer(NetCommon):
 			return
 		proj = Projectile(c.entity.position)
 		proj.owner = c.entity
-		proj.velocity.x = (100,-100)[c.entity.team]
+		speed = 100 + min(self.t - c.chargeStartTime,1) * 100
+		proj.velocity = Vector2(*data["direction"]).normalized() * speed
 		game.scene.add(proj)
 		self.spawn(proj, "projectile", owner=c, ensured=False)
 		c.entity.play("throw")
+		c.entity.charge = 0
+
+	def process_charge(self, data, game, info):
+		c = self.getClient(info)
+		if c is None:
+			return
+		c.entity.charge = 1.0
+		c.chargeStartTime = self.t
+
 
 	def process_playerInfo(self, data, game, info):
 		c = self.getClient(info)
@@ -266,5 +279,4 @@ class NetServer(NetCommon):
 			return
 		self.averagedData.add(self.t, key, diff)
 		c.latency = self.averagedData.get_max(self.t, key, 10)
-		print c.latency
 		self.sendToClient(c, {"type":"pong"})

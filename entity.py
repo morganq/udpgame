@@ -21,6 +21,7 @@ class NetEntity(Entity):
 		self.serverTime = 0
 		self.predict = False
 		self.interpVals = []
+		self.lastStateUpdate = 0
 
 	def update(self, dt):
 		st = self.recordState()

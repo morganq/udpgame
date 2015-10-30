@@ -81,6 +81,7 @@ class NetClient(NetCommon):
 	def updateEntity(self, time, entity, edata, game):
 		state = edata
 		state["t"] = time
+		entity.lastStateUpdate = self.t
 		entity.serverStates.append(state)
 
 	def updatePlayer(self, time, entity, edata, game):
@@ -95,9 +96,16 @@ class NetClient(NetCommon):
 			"xd" : self.myPlayer.xDirection, "yd" : self.myPlayer.yDirection,
 			"position": self.myPlayer.position.asTuple()})
 
-	def sendFireMessage(self):
-		self.sendToServer({
+	def sendFireMessage(self, direction):
+		self.sendEnsuredToServer({
 			"type":"fire",
+			"direction":direction.asTuple(),
+			"time":self.serverTime
+			})
+
+	def sendChargeMessage(self):
+		self.sendEnsuredToServer({
+			"type":"charge",
 			"time":self.serverTime
 			})
 		
@@ -134,6 +142,7 @@ class NetClient(NetCommon):
 		ent.velocity = Vector2(*data["velocity"])
 		ent.position += ent.velocity * (self.serverTime - data["time"])
 		ent.netid = data["netid"]
+		ent.lastStateUpdate = self.t
 		game.scene.add(ent)
 
 		if data["name"] == "projectile":
@@ -171,6 +180,13 @@ class NetClient(NetCommon):
 			player = self.lookupEntity(game.scene, pdata["netid"])
 			if player:
 				self.updatePlayer(data["time"], player, pdata, game)
+		ids = [e["netid"] for e in data["entities"]]
+		toRemove = []
+		for e in game.scene.sceneEntities:
+			if hasattr(e,"netid") and e.lastStateUpdate < self.t - 5.0:
+				toRemove.append(e)
+		for e in toRemove:
+			game.scene.sceneEntities.remove(e)
 
 	def process_chat(self, data, game, info):
 		p = self.lookupEntity(game.scene, data["netid"])
@@ -181,7 +197,8 @@ class NetClient(NetCommon):
 	def process_animation(self, data, game, info):
 		p = self.lookupEntity(game.scene, data["netid"])
 		if p is not None and p is not self.myPlayer:
-			p.play(data["name"])
+			print "anim: " + data["name"]
+			p.play(data["name"], True)
 
 	def process_endround(self, data, game, info):
 		game.score = data["score"]
@@ -201,7 +218,6 @@ class NetClient(NetCommon):
 
 	def process_serverVars(self, data, game, info):
 		self.interp = data["interp"]
-		print "INTERP: ", self.interp
 
 	def process_playerHit(self, data, game, info):
 		p = self.lookupEntity(game.scene, data["netid"])
