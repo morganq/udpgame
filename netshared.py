@@ -30,9 +30,9 @@ class NetCommon:
 		self.packetTimestamps = []
 		self.packetsPerSecond = 0
 		
-		self.simulatedLatency = 0.15
-		self.simulatedRandomLatencyVal = 0.1
-		self.simulatedPacketloss = 0.1
+		self.simulatedLatency = 0
+		self.simulatedRandomLatencyVal = 0
+		self.simulatedPacketloss = 0
 
 		self.simulatedRandomLatency = 0
 		self.simulatedPackets = []
