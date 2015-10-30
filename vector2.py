@@ -87,3 +87,6 @@ class Vector2:
 		self.x *= s
 		self.y *= s
 		return self
+
+	def sideways(self):
+		return Vector2(-self.y, self.x)

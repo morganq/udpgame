@@ -112,7 +112,7 @@ class NetCommon:
 		return [unpacked]
 
 	def sendPacket(self, data, addr, port):
-		#print "packet: " + data["type"]
+		print "packet: " + data["type"]
 		addrportstr = addr + ":" + str(port)
 		data["packet_id"] = self.packet_outbound_last_id[addrportstr]
 		self.packet_outbound_last_id[addrportstr] += 1
@@ -121,7 +121,7 @@ class NetCommon:
 	def sendEnsuredPacket(self, data, addr, port):
 		addrportstr = addr + ":" + str(port)		
 		ensured_id = self.ensured_send_packet_ids[addrportstr]
-		#print "packet: " + data["type"] + " (ensured id: " + str(ensured_id) + ")"
+		print "packet: " + data["type"] + " (ensured id: " + str(ensured_id) + ")"
 		data["packet_id"] = self.packet_outbound_last_id[addrportstr]
 		self.packet_outbound_last_id[addrportstr] += 1		
 		data["ensured_id"] = ensured_id

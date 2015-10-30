@@ -49,6 +49,7 @@ class Player(Sprite):
 		self.throwTimer = 0
 
 		self.charge = 0
+		self.chargeDir = Vector2(0,0)
 
 		self.hitTimer = 0
 
@@ -151,8 +152,17 @@ class Player(Sprite):
 			pygame.draw.line(screen, (67,102,125), (x, y), (x + w, y))
 
 		if self.charge > 0:
-			c = int(min(self.charge, 1.0) * 14.0)
-			pygame.draw.line(screen, (173,0,0), (x-1,y-2),(x + c, y-2))
+			md = 10.0
+			c = int(min(self.charge+1, 2.0) * 10.0)
+			#pygame.draw.line(screen, (173,0,0), (x-1,y-2),(x + c, y-2))
+			p1 = self.position + self.chargeDir * md
+			p2 = self.position + self.chargeDir * (md + c)
+			pa1 = p2 - self.chargeDir * 3 + self.chargeDir.sideways() * 3
+			pa2 = p2 - self.chargeDir * 3 - self.chargeDir.sideways() * 3
+			r = 100 + self.charge * 155
+			pygame.draw.line(screen, (r, 0, 0), p1.asIntTuple(), p2.asIntTuple())
+			pygame.draw.line(screen, (r, 0, 0), p2.asIntTuple(), pa1.asIntTuple())
+			pygame.draw.line(screen, (r, 0, 0), p2.asIntTuple(), pa2.asIntTuple())
 
 		if self.chatTimer > 0:
 			surf = self.chatFont.render(self.chatText, False, (39, 65, 62))
@@ -195,11 +205,12 @@ class PlayerController:
 
 		if self.charging:
 			if kx != 0 or ky != 0:
-				self.chargeDir = Vector2(kx, ky).normalized()
+				self.chargeDir += Vector2(kx, ky).normalized()
 			self.chargeTimer = min(self.chargeTimer + dt,1)
 			self.player.xDirection = 0
-			self.player.yDirection = 0			
+			self.player.yDirection = 0
 			self.player.charge = self.chargeTimer
+			self.player.chargeDir = self.chargeDir.normalized()
 		else:
 			self.player.xDirection = kx
 			self.player.yDirection = ky
@@ -217,7 +228,7 @@ class PlayerController:
 
 		if evt.type == pygame.KEYUP:
 			if evt.key == pygame.K_z:
-				self.netClient.sendFireMessage(self.chargeDir)
+				self.netClient.sendFireMessage(self.chargeDir.normalized())
 				self.player.throwingWaitForServer = True
 				self.player.throwTimer = 0.25
 				self.player.play("throw")
