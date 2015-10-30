@@ -45,7 +45,7 @@ class NetClient(NetCommon):
 
 		self.timeSinceUpdate += dt
 
-		if self.myPlayer and self.t - self.interp >= self.lastStateUpdate:
+		if self.myPlayer and self.serverTime - self.interp >= self.lastStateUpdate:
 			self.interp += dt / 4.0
 			print "interp upgrade:", self.interp
 
